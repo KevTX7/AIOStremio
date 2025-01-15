@@ -129,7 +129,7 @@
             background-color: var(--button-hover);
         }
 
-        button:active {
+        button:not(.toggle-password):active {
             transform: translateY(1px);
         }
 
@@ -194,6 +194,61 @@
                 padding: 1rem;
             }
         }
+
+        .config-url-container {
+            position: relative;
+            display: flex;
+            align-items: stretch;
+            overflow-x: auto;
+            max-width: 100%;
+        }
+
+        .config-url-container pre {
+            flex-grow: 1;
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-all;
+            word-wrap: break-word;
+            padding: 8px 42px 8px 10px;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #374151;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            color: #9ca3af;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            line-height: 1;
+        }
+
+        .toggle-password.active {
+            background: var(--button-bg);
+            color: white;
+        }
+
+        .toggle-password:hover {
+            opacity: 0.9;
+        }
+
+        .eye-icon {
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+        }
     </style>
 </head>
 <body>
@@ -215,29 +270,48 @@
             <label for="password">Password:</label>
             <input type="password" id="password" name="password" required>
         </div>
-        <button type="submit">Generate URL</button>
+        <div style="display: flex; gap: 1rem;">
+            <button type="button" onclick="handleAddToStremio()">Add to Stremio</button>
+            <button type="button" onclick="handleWatchInBrowser()">Watch in Browser</button>
+        </div>
     </form>
 
     <div id="result" class="result">
         <h3>Your Configuration URL:</h3>
-        <pre id="configUrl"></pre>
-        <button id="openStremioBtn" onclick="openInStremio()" style="margin-top: 1rem;">Install</button>
+        <div class="config-url-container">
+            <pre id="configUrl"></pre>
+            <button id="togglePassword" class="toggle-password" title="Toggle password visibility">
+                <span class="eye-icon">👁️</span>
+            </button>
+        </div>
     </div>
 
     <script>
-        function openInStremio() {
-            const configUrl = document.getElementById('configUrl').textContent;
-            window.location.href = 'stremio://' + configUrl;
+        let isPasswordVisible = false;
+        let originalUrl = '';
+
+        function censorPassword(url) {
+            const censored = '•'.repeat(url.length);
+            return censored.match(/.{1,50}/g).join('\n');
         }
 
-        document.getElementById('configForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
+        function togglePasswordVisibility() {
+            const configUrlElement = document.getElementById('configUrl');
+            const toggleButton = document.getElementById('togglePassword');
+            isPasswordVisible = !isPasswordVisible;
+            
+            configUrlElement.textContent = isPasswordVisible ? originalUrl : censorPassword(originalUrl);
+            toggleButton.title = isPasswordVisible ? "Hide URL" : "Show URL";
+            toggleButton.classList.toggle('active', isPasswordVisible);
+        }
+
+        document.getElementById('togglePassword').addEventListener('click', togglePasswordVisibility);
+
+        async function generateConfig() {
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
             
             try {
-                console.log('Sending request...');
-                
                 const formData = new FormData();
                 formData.append('username', username);
                 formData.append('password', password);
@@ -247,25 +321,44 @@
                     body: formData
                 });
                 
-                console.log('Response status:', response.status);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
                 const result = await response.json();
                 
-                if (result.url) {
-                    document.getElementById('configUrl').textContent = result.url;
-                    document.getElementById('result').style.display = 'block';
+                if (response.ok && result.status === 'success' && result.url) {
+                    originalUrl = result.url;
+                    return result.url;
                 } else {
-                    alert(result.message || 'Error generating configuration');
+                    const errorMessage = result.detail || result.message || 'Error generating configuration';
+                    throw new Error(errorMessage);
                 }
             } catch (error) {
                 console.error('Request failed:', error);
-                alert(`Error: ${error.message}`);
+                alert('Network error occurred while generating configuration');
+                throw error;
             }
-        });
+        }
+
+        async function handleAddToStremio() {
+            try {
+                const url = await generateConfig();
+                isPasswordVisible = false;
+                document.getElementById('configUrl').textContent = censorPassword(url);
+                document.getElementById('result').style.display = 'block';
+                const cleanUrl = url.replace(/^https?:\/\//, '');
+                window.location.href = 'stremio://' + cleanUrl;
+            } catch (error) {
+                // Error already handled in generateConfig
+            }
+        }
+
+        async function handleWatchInBrowser() {
+            try {
+                const url = await generateConfig();
+                const userPath = new URL(url).pathname.split('/')[1];
+                window.location.href = `/${userPath}/watch`;
+            } catch (error) {
+                // Error already handled in generateConfig
+            }
+        }
     </script>
 </body>
 </html> 

@@ -717,12 +717,17 @@
                     body: formData
                 });
                 const result = await response.json();
-                alert(result.message);
-                if (result.status === 'success') {
-                    location.reload();
+                
+                if (response.ok) {
+                    alert(result.message);
+                    if (result.status === 'success') {
+                        location.reload();
+                    }
+                } else {
+                    alert(result.detail || 'Error adding user');
                 }
             } catch (error) {
-                alert('Error adding user');
+                alert('Network error occurred while adding user');
             }
         });
 
@@ -732,12 +737,15 @@
                     method: 'POST'
                 });
                 const result = await response.json();
-                if (result.status === 'success') {
+                if (response.ok && result.status === 'success') {
                     const proxyButton = document.getElementById(`proxy-btn-${username}`);
                     proxyButton.textContent = `Proxy: ${result.proxy_streams ? 'On' : 'Off'}`;
+                } else {
+                    alert(result.detail || 'Error toggling proxy setting');
                 }
             } catch (error) {
                 console.error(`Error toggling proxy for ${username}:`, error);
+                alert('Network error occurred while toggling proxy setting');
             }
         }
 
@@ -747,12 +755,15 @@
                     method: 'POST'
                 });
                 const result = await response.json();
-                if (result.status === 'success') {
+                if (response.ok && result.status === 'success') {
                     const vidiButton = document.getElementById(`vidi-btn-${username}`);
                     vidiButton.textContent = `Vidi Mode: ${result.vidi_mode ? 'On' : 'Off'}`;
+                } else {
+                    alert(result.detail || 'Error toggling Vidi mode');
                 }
             } catch (error) {
                 console.error(`Error toggling Vidi mode for ${username}:`, error);
+                alert('Network error occurred while toggling Vidi mode');
             }
         }
 
@@ -762,12 +773,15 @@
                     method: 'POST'
                 });
                 const result = await response.json();
-                if (result.status === 'success') {
+                if (response.ok && result.status === 'success') {
                     const simpleButton = document.getElementById(`simple-btn-${username}`);
                     simpleButton.textContent = `Simple Format: ${result.simple_format ? 'On' : 'Off'}`;
+                } else {
+                    alert(result.detail || 'Error toggling simple format');
                 }
             } catch (error) {
                 console.error(`Error toggling simple format for ${username}:`, error);
+                alert('Network error occurred while toggling simple format');
             }
         }
 
@@ -777,12 +791,15 @@
                     method: 'POST'
                 });
                 const result = await response.json();
-                if (result.status === 'success') {
+                if (response.ok && result.status === 'success') {
                     const qualityButton = document.getElementById(`quality-btn-${username}`);
                     qualityButton.textContent = `Best Per Resolution: ${result.one_per_quality ? 'On' : 'Off'}`;
+                } else {
+                    alert(result.detail || 'Error toggling quality setting');
                 }
             } catch (error) {
                 console.error(`Error toggling one per quality for ${username}:`, error);
+                alert('Network error occurred while toggling quality setting');
             }
         }
 
@@ -792,12 +809,15 @@
                     method: 'POST'
                 });
                 const result = await response.json();
-                if (result.status === 'success') {
+                if (response.ok && result.status === 'success') {
                     const cachedButton = document.getElementById(`cached-btn-${username}`);
                     cachedButton.textContent = `Cached Only: ${result.cached_only ? 'On' : 'Off'}`;
+                } else {
+                    alert(result.detail || 'Error toggling cached only setting');
                 }
             } catch (error) {
                 console.error(`Error toggling cached only for ${username}:`, error);
+                alert('Network error occurred while toggling cached only setting');
             }
         }
 
@@ -810,15 +830,15 @@
                     method: 'DELETE'
                 });
                 const result = await response.json();
-                if (result.status === 'success') {
+                if (response.ok && result.status === 'success') {
                     alert('User deleted successfully');
                     location.reload();
                 } else {
-                    throw new Error(result.message || 'Failed to delete user');
+                    alert(result.detail || 'Failed to delete user');
                 }
             } catch (error) {
                 console.error(`Error deleting user ${username}:`, error);
-                alert(`Error deleting user: ${error.message}`);
+                alert('Network error occurred while deleting user');
             }
         }
 

@@ -1,0 +1,1980 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AIOStremio</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="AIOStremio">
+    <link rel="apple-touch-icon" href="/static/icon-192.png">
+    <link rel="apple-touch-startup-image" href="/static/splash.png">
+    <link rel="manifest" href="/static/manifest.json">
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #1a1a1a;
+                --text-color: #ffffff;
+                --input-bg: #333;
+                --border-color: #444;
+                --stats-bg: #242424;
+                --button-bg: #2563eb;
+                --button-hover: #1d4ed8;
+                --card-bg: #242424;
+                --modal-bg: #1a1a1a;
+                --modal-overlay: rgba(0, 0, 0, 0.75);
+            }
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root {
+                --bg-color: #ffffff;
+                --text-color: #1a1a1a;
+                --input-bg: #ffffff;
+                --border-color: #e5e7eb;
+                --stats-bg: #f8f9fa;
+                --button-bg: #2563eb;
+                --button-hover: #1d4ed8;
+                --card-bg: #f8f9fa;
+                --modal-bg: #ffffff;
+                --modal-overlay: rgba(0, 0, 0, 0.5);
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            background: var(--bg-color);
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            padding: 0;
+            background: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.5;
+            transition: background-color 0.3s, color 0.3s;
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            padding-top: calc(env(safe-area-inset-top) + 20px);
+            padding-bottom: calc(env(safe-area-inset-bottom) + 20px);
+            padding-left: calc(env(safe-area-inset-left) + 20px);
+            padding-right: calc(env(safe-area-inset-right) + 20px);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .search-container {
+            margin-bottom: 2rem;
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 1rem;
+            font-size: 1.1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            background: var(--input-bg);
+            color: var(--text-color);
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--button-bg);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .search-results-section {
+            margin: 2rem 0;
+        }
+
+        .search-results-row {
+            margin: 1rem 0;
+        }
+
+        .search-results-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+        }
+
+        .horizontal-scroll {
+            display: flex;
+            overflow-x: auto;
+            gap: 1rem;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(37, 99, 235, 0.3) transparent;
+            -webkit-overflow-scrolling: touch;
+            margin: 0 -0.5rem;
+            padding: 0.5rem;
+            padding-bottom: 1rem;
+            position: relative;
+            mask-image: linear-gradient(to right, 
+                transparent 0px,
+                black 20px,
+                black calc(100% - 20px),
+                transparent 100%
+            );
+            -webkit-mask-image: linear-gradient(to right, 
+                transparent 0px,
+                black 20px,
+                black calc(100% - 20px),
+                transparent 100%
+            );
+        }
+
+        .horizontal-scroll.at-start {
+            mask-image: linear-gradient(to right, 
+                black 0px,
+                black calc(100% - 20px),
+                transparent 100%
+            );
+            -webkit-mask-image: linear-gradient(to right, 
+                black 0px,
+                black calc(100% - 20px),
+                transparent 100%
+            );
+        }
+
+        .horizontal-scroll.at-end {
+            mask-image: linear-gradient(to right, 
+                transparent 0px,
+                black 20px,
+                black 100%
+            );
+            -webkit-mask-image: linear-gradient(to right, 
+                transparent 0px,
+                black 20px,
+                black 100%
+            );
+        }
+
+        .horizontal-scroll.at-start.at-end {
+            mask-image: none;
+            -webkit-mask-image: none;
+        }
+
+        .horizontal-scroll::after {
+            display: none;
+        }
+
+        .horizontal-scroll.has-overflow::after {
+            display: none;
+        }
+
+        .horizontal-scroll .search-status {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .horizontal-scroll::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .horizontal-scroll::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 3px;
+        }
+
+        .horizontal-scroll::-webkit-scrollbar-thumb {
+            background: rgba(37, 99, 235, 0.3);
+            border-radius: 3px;
+        }
+
+        .horizontal-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(37, 99, 235, 0.5);
+        }
+
+        .horizontal-scroll .content-card {
+            flex: 0 0 160px;
+            margin: 0;
+        }
+
+        .content-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            overflow: hidden;
+            transition: transform 0.2s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .content-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .content-poster {
+            width: 100%;
+            aspect-ratio: 2/3;
+            object-fit: cover;
+        }
+
+        .poster-placeholder {
+            width: 100%;
+            aspect-ratio: 2/3;
+            background: var(--card-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-color);
+            opacity: 0.5;
+            font-size: 2.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .content-info {
+            padding: 1rem;
+        }
+
+        .content-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .content-year {
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+
+        .content-type {
+            position: absolute;
+            bottom: 0.75rem;
+            left: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            background: var(--button-bg);
+            color: white;
+            font-size: 0.8rem;
+            border-radius: 0.5rem;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--modal-overlay);
+            z-index: 1000;
+            overflow-y: auto;
+            padding: env(safe-area-inset-top) 0 0 0;
+        }
+
+        .modal.show {
+            display: block;
+        }
+
+        .modal-content {
+            background: var(--modal-bg);
+            margin: 0 auto;
+            padding: 20px;
+            padding-bottom: max(20px, env(safe-area-inset-bottom));
+            max-width: 800px;
+            border-radius: 1rem;
+            position: relative;
+            margin-top: env(safe-area-inset-top);
+            transform: translateY(0);
+            transition: transform 0.2s ease-out;
+            will-change: transform;
+            touch-action: pan-y;
+        }
+
+        .modal-content.swiping {
+            transition: none;
+        }
+
+        .modal-content.will-close {
+            transition: transform 0.2s ease-in;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-color);
+            padding: 0.5rem;
+            z-index: 2;
+        }
+
+        .modal-poster {
+            width: 100%;
+            max-width: 300px;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .modal-metadata {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+
+        .modal-description {
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+
+        .modal-genres {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .genre-tag {
+            background: var(--button-bg);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.8rem;
+        }
+
+        .watch-button {
+            background: var(--button-bg);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        .watch-button:hover {
+            background: var(--button-hover);
+        }
+
+        .history-section {
+            margin-top: 3rem;
+        }
+
+        .history-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 2rem;
+            font-size: 1.1rem;
+            color: var(--text-color);
+            opacity: 0.7;
+        }
+
+        .stream-list {
+            list-style: none;
+            padding: 0;
+            margin: 1rem 0;
+        }
+
+        .stream-item {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .stream-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .stream-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            white-space: pre-line;
+        }
+
+        .stream-info {
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+
+        .stream-quality {
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            background: var(--button-bg);
+            color: white;
+            border-radius: 0.25rem;
+            font-size: 0.8rem;
+            margin-right: 0.5rem;
+        }
+
+        .stream-size {
+            display: inline-block;
+            font-size: 0.8rem;
+            opacity: 0.7;
+        }
+
+        .loading-spinner {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border-color);
+            border-radius: 50%;
+            border-top-color: var(--button-bg);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 15px;
+            }
+
+            .content-grid {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                gap: 0.75rem;
+            }
+
+            .horizontal-scroll {
+                gap: 0.75rem;
+                margin: 0 -1rem;
+                padding: 0.5rem 1rem;
+                padding-bottom: 0.75rem;
+            }
+
+            .horizontal-scroll .content-card {
+                flex: 0 0 120px;
+            }
+
+            .content-card {
+                border-radius: 0.5rem;
+            }
+
+            .content-info {
+                padding: 0.75rem;
+            }
+
+            .content-title {
+                font-size: 0.9rem;
+            }
+
+            .content-year {
+                font-size: 0.8rem;
+            }
+
+            .content-type {
+                font-size: 0.7rem;
+                padding: 0.15rem 0.4rem;
+            }
+
+            .section-title {
+                font-size: 1.25rem;
+                margin: 1.5rem 0 0.75rem 0;
+            }
+
+            .top-content-section {
+                margin-top: 1.5rem;
+            }
+
+            .modal-content {
+                margin: env(safe-area-inset-top) 0 0 0;
+                min-height: calc(100vh - env(safe-area-inset-top));
+                border-radius: 1rem 1rem 0 0;
+                overflow-y: auto;
+                overscroll-behavior-y: contain;
+                padding-bottom: max(20px, env(safe-area-inset-bottom));
+            }
+
+            .modal-content::before {
+                content: '';
+                display: block;
+                width: 40px;
+                height: 4px;
+                background: var(--border-color);
+                border-radius: 2px;
+                margin: -10px auto 15px;
+            }
+
+            .modal-poster {
+                max-width: 200px;
+                margin: 0 auto 1rem auto;
+                display: block;
+            }
+
+            .modal-title {
+                font-size: 1.25rem;
+            }
+
+            .content-title {
+                font-size: 0.9rem;
+            }
+
+            .content-year {
+                font-size: 0.8rem;
+            }
+
+            .content-type {
+                font-size: 0.7rem;
+                padding: 0.15rem 0.4rem;
+            }
+
+            .stream-item {
+                padding: 0.75rem;
+            }
+
+            .stream-title {
+                font-size: 0.9rem;
+            }
+
+            .stream-info {
+                font-size: 0.8rem;
+            }
+
+            .stream-quality {
+                font-size: 0.7rem;
+                padding: 0.15rem 0.4rem;
+            }
+
+            .search-input {
+                padding: 0.75rem;
+                font-size: 1rem;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .history-title {
+                font-size: 1.25rem;
+            }
+
+            .close-modal {
+                top: 0.5rem;
+                right: 0.5rem;
+            }
+        }
+
+        .search-status {
+            margin: 2rem 0;
+            text-align: center;
+        }
+
+        .error-message {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.75rem;
+            padding: 2rem;
+            text-align: center;
+            color: var(--text-color);
+        }
+
+        .season-picker {
+            margin: 1rem 0;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.5rem;
+        }
+
+        .season-button {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            color: var(--text-color);
+            transition: all 0.2s ease;
+            width: 100%;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.25rem;
+            line-height: 1.2;
+            min-height: 3.5rem;
+        }
+
+        .season-button.specials {
+            padding: 0.75rem 0.5rem;
+        }
+
+        .season-button:hover,
+        .season-button.active {
+            background: var(--button-bg);
+            color: white;
+            border-color: var(--button-bg);
+        }
+
+        .episode-list {
+            margin: 1rem 0;
+            display: grid;
+            gap: 0.5rem;
+        }
+
+        .episode-item {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .episode-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .episode-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .episode-overview {
+            font-size: 0.9rem;
+            opacity: 0.7;
+            margin-bottom: 0.5rem;
+        }
+
+        .episode-released {
+            font-size: 0.8rem;
+            opacity: 0.5;
+        }
+
+        .episode-item.unreleased {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .episode-item.unreleased:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        .stream-item.unreleased {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .stream-item.unreleased:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        .stream-item.unreleased > div {
+            cursor: not-allowed;
+        }
+
+        /* Profile button and settings styles */
+        .profile-button {
+            background: var(--button-bg);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .profile-button:hover {
+            background: var(--button-hover);
+        }
+
+        .settings-grid {
+            display: grid;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .setting-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+        }
+
+        .setting-info {
+            flex: 1;
+        }
+
+        .setting-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .setting-description {
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 48px;
+            height: 24px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--border-color);
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: var(--button-bg);
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+        .save-settings {
+            background: var(--button-bg);
+            color: white;
+            border: none;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 1rem;
+            width: 100%;
+            margin-top: 1rem;
+            transition: background-color 0.2s ease;
+        }
+
+        .save-settings:hover {
+            background: var(--button-hover);
+        }
+
+        .save-settings:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .settings-status {
+            text-align: center;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .settings-status.show {
+            opacity: 1;
+        }
+
+        .settings-status.success {
+            color: #10B981;
+        }
+
+        .settings-status.error {
+            color: #EF4444;
+        }
+
+        .top-content-section {
+            margin-top: 2rem;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 2rem 0 1rem 0;
+            color: var(--text-color);
+        }
+
+        .horizontal-scroll {
+            display: flex;
+            overflow-x: auto;
+            gap: 1rem;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(37, 99, 235, 0.3) transparent;
+            -webkit-overflow-scrolling: touch;
+            margin: 0 -0.5rem;
+            padding: 0.5rem;
+            padding-bottom: 1rem;
+        }
+
+        .horizontal-scroll::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .horizontal-scroll::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 3px;
+        }
+
+        .horizontal-scroll::-webkit-scrollbar-thumb {
+            background: rgba(37, 99, 235, 0.3);
+            border-radius: 3px;
+        }
+
+        .horizontal-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(37, 99, 235, 0.5);
+        }
+
+        /* Add new styles for player selection */
+        .player-selection {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+            background: var(--card-bg);
+            border-top: 0px solid var(--border-color);
+            margin-top: 0;
+            display: flex;
+            gap: 0.5rem;
+            opacity: 0;
+        }
+
+        .player-selection.show {
+            max-height: 60px;
+            padding: 0.75rem 0 0 0;
+            border-top: 1px solid var(--border-color);
+            margin-top: 0.75rem;
+            opacity: 1;
+        }
+
+        .player-button {
+            flex: 1;
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 0.375rem;
+            background: var(--bg-color);
+            color: var(--text-color);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        .player-button:hover,
+        .player-button:focus {
+            outline: none;
+            background: var(--bg-color);
+            color: var(--text-color);
+            border-color: var(--border-color);
+        }
+
+        @media (hover: hover) {
+            .player-button:hover {
+                background: var(--button-bg);
+                color: white;
+                border-color: var(--button-bg);
+            }
+        }
+
+        @media (hover: none) {
+            .player-button:active {
+                background: var(--button-bg);
+                color: white;
+                border-color: var(--button-bg);
+            }
+        }
+
+        /* iOS Install Banner Styles */
+        .ios-install-banner {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-color);
+            border-top: 1px solid var(--border-color);
+            padding: 1rem;
+            padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+            z-index: 999;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            transform: translateY(100%);
+            transition: transform 0.3s ease-out;
+        }
+
+        .ios-install-banner.show {
+            transform: translateY(0);
+        }
+
+        .ios-install-content {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .ios-install-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            background: var(--button-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .ios-install-text {
+            flex: 1;
+        }
+
+        .ios-install-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .ios-install-description {
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+
+        .ios-install-close {
+            padding: 0.5rem;
+            background: none;
+            border: none;
+            color: var(--text-color);
+            cursor: pointer;
+            opacity: 0.7;
+            flex-shrink: 0;
+        }
+
+        .ios-install-close:hover {
+            opacity: 1;
+        }
+
+        /* Adjust container padding when banner is shown */
+        .container.has-install-banner {
+            padding-bottom: calc(env(safe-area-inset-bottom) + 100px);
+        }
+
+        .top-content-section {
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Add iOS Install Banner -->
+    <div class="ios-install-banner" id="iosInstallBanner">
+        <div class="ios-install-content">
+            <div class="ios-install-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+                    <path d="M12 5v14M5 12h14"></path>
+                </svg>
+            </div>
+            <div class="ios-install-text">
+                <div class="ios-install-title">Install AIOStremio</div>
+                <div class="ios-install-description">Add to Home Screen for the best experience</div>
+            </div>
+            <button class="ios-install-close" onclick="dismissInstallBanner()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 6L6 18M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1>AIOStremio</h1>
+            <button class="profile-button" onclick="showSettings()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                Profile
+            </button>
+        </div>
+
+        <div class="search-container">
+            <input type="text" class="search-input" placeholder="Search for movies and TV shows..." id="searchInput">
+        </div>
+
+        <div id="searchResults"></div>
+
+        <div class="top-content-section">
+            <h2 class="section-title">Top Movies</h2>
+            <div class="horizontal-scroll" id="topMovies">
+                <div class="search-status">
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <h2 class="section-title">Top TV Shows</h2>
+            <div class="horizontal-scroll" id="topSeries">
+                <div class="search-status">
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="contentModal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal()">&times;</button>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeSettingsModal()">&times;</button>
+            <h2 class="modal-title">Profile Settings</h2>
+            <div class="settings-grid" id="settingsGrid">
+                <div class="loading-spinner">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+            <div class="settings-status" id="settingsStatus"></div>
+        </div>
+    </div>
+
+    <script>
+        let debounceTimeout;
+        let currentSearchController = null;  // Track current search request
+        const searchInput = document.getElementById('searchInput');
+        const searchResults = document.getElementById('searchResults');
+        const contentModal = document.getElementById('contentModal');
+
+        // Add touch event handling for modals
+        let touchStartY = 0;
+        let touchCurrentY = 0;
+        let modalBeingDragged = null;
+        let scrollStartPosition = 0;
+
+        function handleTouchStart(e, modalContent) {
+            // Only handle touch events if we're at the top of the scroll
+            if (modalContent.scrollTop <= 0) {
+                touchStartY = e.touches[0].clientY;
+                touchCurrentY = touchStartY;
+                modalBeingDragged = modalContent;
+                scrollStartPosition = modalContent.scrollTop;
+                modalContent.classList.add('swiping');
+            }
+        }
+
+        function handleTouchMove(e) {
+            if (!modalBeingDragged) return;
+            
+            touchCurrentY = e.touches[0].clientY;
+            const deltaY = touchCurrentY - touchStartY;
+            
+            // Only allow dragging downward
+            if (deltaY > 0) {
+                e.preventDefault();
+                modalBeingDragged.style.transform = `translateY(${deltaY}px)`;
+            }
+        }
+
+        function handleTouchEnd() {
+            if (!modalBeingDragged) return;
+
+            const deltaY = touchCurrentY - touchStartY;
+            modalBeingDragged.classList.remove('swiping');
+
+            if (deltaY > 100) {
+                // If dragged down far enough, dismiss the modal
+                modalBeingDragged.classList.add('will-close');
+                modalBeingDragged.style.transform = 'translateY(100vh)';
+                
+                // Determine which modal to close
+                if (modalBeingDragged.parentElement.id === 'contentModal') {
+                    setTimeout(() => {
+                        closeModal();
+                        // Reset transform in next frame to ensure proper cleanup
+                        requestAnimationFrame(() => {
+                            modalBeingDragged.style.transform = '';
+                        });
+                    }, 200);
+                } else if (modalBeingDragged.parentElement.id === 'settingsModal') {
+                    setTimeout(() => {
+                        closeSettingsModal();
+                        // Reset transform in next frame to ensure proper cleanup
+                        requestAnimationFrame(() => {
+                            modalBeingDragged.style.transform = '';
+                        });
+                    }, 200);
+                }
+            } else {
+                // Otherwise, snap back to original position
+                modalBeingDragged.style.transform = '';
+            }
+
+            modalBeingDragged = null;
+            touchStartY = 0;
+            touchCurrentY = 0;
+        }
+
+        // Add touch event listeners to both modals
+        document.querySelectorAll('.modal-content').forEach(modalContent => {
+            modalContent.addEventListener('touchstart', (e) => handleTouchStart(e, modalContent), { passive: false });
+        });
+
+        document.addEventListener('touchmove', handleTouchMove, { passive: false });
+        document.addEventListener('touchend', handleTouchEnd);
+        document.addEventListener('touchcancel', handleTouchEnd);
+
+        // Get user path from URL
+        const pathParts = window.location.pathname.split('/');
+        const userPath = pathParts[1];
+
+        // Load top content on page load
+        loadTopContent();
+
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(debounceTimeout);
+            const query = e.target.value.trim();
+            
+            if (query.length < 3) {
+                searchResults.innerHTML = '';
+                return;
+            }
+            
+            debounceTimeout = setTimeout(() => {
+                if (query) {
+                    searchContent(query);
+                } else {
+                    searchResults.innerHTML = '';
+                }
+            }, 300);
+        });
+
+        async function searchContent(query) {
+            try {
+                // Cancel any ongoing search request
+                if (currentSearchController) {
+                    currentSearchController.abort();
+                }
+                
+                // Create new AbortController for this request
+                currentSearchController = new AbortController();
+                
+                // Show loading spinner
+                searchResults.innerHTML = `
+                    <div class="search-status">
+                        <div class="loading-spinner">
+                            <div class="spinner"></div>
+                        </div>
+                    </div>
+                `;
+                
+                const response = await fetch(
+                    `/${userPath}/search?query=${encodeURIComponent(query)}`,
+                    { signal: currentSearchController.signal }
+                );
+                const data = await response.json();
+                
+                // Clear the controller since request completed
+                currentSearchController = null;
+                
+                if (!data.results || data.results.length === 0) {
+                    searchResults.innerHTML = `
+                        <div class="search-status">
+                            <div class="error-message">
+                                No results found for "${query}"
+                            </div>
+                        </div>
+                    `;
+                    return;
+                }
+
+                const movies = data.results
+                    .filter(item => item.type === 'movie' && item.title !== 'Unknown');
+                const series = data.results
+                    .filter(item => item.type === 'series' && item.title !== 'Unknown');
+
+                searchResults.innerHTML = `
+                    <div class="search-results-section">
+                        ${movies.length > 0 ? `
+                            <div class="search-results-row">
+                                <div class="search-results-title">Movies</div>
+                                <div class="horizontal-scroll" id="searchMovies">
+                                    ${movies.map(item => `
+                                        <div class="content-card" onclick="showContentDetails('${item.type}', '${item.imdb_id}')">
+                                            ${item.poster ? `
+                                                <img src="${item.poster}" alt="" class="content-poster" 
+                                                    onerror="this.outerHTML='<div class=\\'poster-placeholder\\'>🎬</div>'">
+                                            ` : `
+                                                <div class="poster-placeholder">🎬</div>
+                                            `}
+                                            <div class="content-info">
+                                                <div class="content-title">${item.title}</div>
+                                                <div class="content-year">${item.year}</div>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                        ${series.length > 0 ? `
+                            <div class="search-results-row">
+                                <div class="search-results-title">TV Shows</div>
+                                <div class="horizontal-scroll" id="searchSeries">
+                                    ${series.map(item => `
+                                        <div class="content-card" onclick="showContentDetails('${item.type}', '${item.imdb_id}')">
+                                            ${item.poster ? `
+                                                <img src="${item.poster}" alt="" class="content-poster" 
+                                                    onerror="this.outerHTML='<div class=\\'poster-placeholder\\'>🎬</div>'">
+                                            ` : `
+                                                <div class="poster-placeholder">🎬</div>
+                                            `}
+                                            <div class="content-info">
+                                                <div class="content-title">${item.title}</div>
+                                                <div class="content-year">${item.year}</div>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+
+                // Call checkScrollOverflow after rendering
+                setTimeout(() => {
+                    // Add scroll event listeners to new search containers
+                    const searchContainers = document.querySelectorAll('#searchMovies, #searchSeries');
+                    searchContainers.forEach(container => {
+                        container.addEventListener('scroll', () => {
+                            const isAtStart = container.scrollLeft <= 5;
+                            const isAtEnd = container.scrollLeft + container.clientWidth >= container.scrollWidth - 5;
+                            container.classList.toggle('at-start', isAtStart);
+                            container.classList.toggle('at-end', isAtEnd);
+                        });
+                        // Trigger initial check
+                        const isAtStart = container.scrollLeft <= 5;
+                        const isAtEnd = container.scrollLeft + container.clientWidth >= container.scrollWidth - 5;
+                        container.classList.toggle('at-start', isAtStart);
+                        container.classList.toggle('at-end', isAtEnd);
+                    });
+                }, 100);
+            } catch (error) {
+                // Don't show error if it was just an aborted request
+                if (error.name === 'AbortError') {
+                    return;
+                }
+                console.error('Error searching content:', error);
+                searchResults.innerHTML = `
+                    <div class="search-status">
+                        <div class="error-message">
+                            Unable to search content. Please try again.
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        async function showContentDetails(contentType, imdbId) {
+            try {
+                const modalContent = document.getElementById('modalContent');
+                modalContent.innerHTML = `
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                    </div>
+                `;
+                contentModal.classList.add('show');
+
+                const response = await fetch(`/${userPath}/content/${contentType}/${imdbId}`);
+                const data = await response.json();
+
+                modalContent.innerHTML = `
+                    ${data.poster ? `
+                        <img src="${data.poster}" alt="" class="modal-poster" 
+                            onerror="this.outerHTML='<div class=\\'poster-placeholder\\'>🎬</div>'">
+                    ` : `
+                        <div class="poster-placeholder">🎬</div>
+                    `}
+                    <h2 class="modal-title">${data.title}</h2>
+                    <div class="modal-metadata">
+                        ${data.year} ${data.runtime ? `• ${data.runtime} minutes` : ''}
+                    </div>
+                    <div class="modal-description">${data.description}</div>
+                    ${data.genres ? `
+                        <div class="modal-genres">
+                            ${data.genres.map(genre => `<span class="genre-tag">${genre}</span>`).join('')}
+                        </div>
+                    ` : ''}
+                    <button class="watch-button" onclick="watchContent('${contentType}', '${imdbId}')">
+                        Watch Now
+                    </button>
+                `;
+            } catch (error) {
+                console.error('Error fetching content details:', error);
+                modalContent.innerHTML = `
+                    <div class="no-results">Error loading content details</div>
+                `;
+            }
+        }
+
+        function closeModal() {
+            const modalContent = contentModal.querySelector('.modal-content');
+            // Reset transform with a slight delay to ensure proper positioning
+            requestAnimationFrame(() => {
+                modalContent.style.transform = '';
+                modalContent.classList.remove('swiping', 'will-close');
+                contentModal.classList.remove('show');
+                // Reset scroll position
+                modalContent.scrollTop = 0;
+            });
+        }
+
+        function closeSettingsModal() {
+            const modalContent = settingsModal.querySelector('.modal-content');
+            // Reset transform with a slight delay to ensure proper positioning
+            requestAnimationFrame(() => {
+                modalContent.style.transform = '';
+                modalContent.classList.remove('swiping', 'will-close');
+                settingsModal.classList.remove('show');
+                settingsStatus.classList.remove('show', 'success', 'error');
+                // Reset scroll position
+                modalContent.scrollTop = 0;
+            });
+        }
+
+        async function loadTopContent() {
+            try {
+                const response = await fetch(`/${userPath}/top`);
+                const data = await response.json();
+                
+                if (!data.results || data.results.length === 0) {
+                    document.getElementById('topMovies').innerHTML = '<div class="no-results">No content available</div>';
+                    document.getElementById('topSeries').innerHTML = '<div class="no-results">No content available</div>';
+                    return;
+                }
+
+                ((e,t)=>{let n=e.createElement("div");n.innerHTML=`<a href="${atob("aHR0cHM6Ly9naXRodWIuY29tL3N0ZWtjL0FJT1N0cmVtaW8=")}" style="text-decoration:none;color:inherit">${String.fromCharCode(77,97,100,101,32,119,105,116,104,32,9829,32,98,121,32)+atob("c3RrYw==")}</a>`,n.style=atob("Y29sb3I6dmFyKC0tdGV4dC1jb2xvcik7b3BhY2l0eTouNzttYXJnaW46MnJlbSAwO3RleHQtYWxpZ246Y2VudGVy"),e.querySelector(".top-content-section").appendChild(n)})(document);
+
+                const movies = data.results.filter(item => item.type === 'movie');
+                const series = data.results.filter(item => item.type === 'series');
+
+                document.getElementById('topMovies').innerHTML = movies.map(item => `
+                    <div class="content-card" onclick="showContentDetails('${item.type}', '${item.imdb_id}')">
+                        ${item.poster ? `
+                            <img src="${item.poster}" alt="" class="content-poster" 
+                                onerror="this.outerHTML='<div class=\\'poster-placeholder\\'>🎬</div>'">
+                        ` : `
+                            <div class="poster-placeholder">🎬</div>
+                        `}
+                        <div class="content-info">
+                            <div class="content-title">${item.title}</div>
+                            <div class="content-year">${item.year}</div>
+                        </div>
+                    </div>
+                `).join('');
+
+                document.getElementById('topSeries').innerHTML = series.map(item => `
+                    <div class="content-card" onclick="showContentDetails('${item.type}', '${item.imdb_id}')">
+                        ${item.poster ? `
+                            <img src="${item.poster}" alt="" class="content-poster" 
+                                onerror="this.outerHTML='<div class=\\'poster-placeholder\\'>🎬</div>'">
+                        ` : `
+                            <div class="poster-placeholder">🎬</div>
+                        `}
+                        <div class="content-info">
+                            <div class="content-title">${item.title}</div>
+                            <div class="content-year">${item.year}</div>
+                        </div>
+                    </div>
+                `).join('');
+
+                // Check for overflow after content is loaded
+                checkScrollOverflow();
+            } catch (error) {
+                console.error('Error loading top content:', error);
+                document.getElementById('topMovies').innerHTML = '<div class="no-results">Error loading content</div>';
+                document.getElementById('topSeries').innerHTML = '<div class="no-results">Error loading content</div>';
+            }
+        }
+
+        // Function to check if horizontal scroll containers have overflow
+        function checkScrollOverflow() {
+            document.querySelectorAll('.horizontal-scroll').forEach(container => {
+                const isAtStart = container.scrollLeft <= 5;
+                const isAtEnd = container.scrollLeft + container.clientWidth >= container.scrollWidth - 5;
+                container.classList.toggle('at-start', isAtStart);
+                container.classList.toggle('at-end', isAtEnd);
+            });
+        }
+
+        // Add scroll event listeners to update overflow state
+        document.querySelectorAll('.horizontal-scroll').forEach(container => {
+            container.addEventListener('scroll', () => {
+                const isAtStart = container.scrollLeft <= 5;
+                const isAtEnd = container.scrollLeft + container.clientWidth >= container.scrollWidth - 5;
+                container.classList.toggle('at-start', isAtStart);
+                container.classList.toggle('at-end', isAtEnd);
+            });
+        });
+
+        // Update overflow state when window is resized
+        window.addEventListener('resize', checkScrollOverflow);
+
+        // Check overflow when search results are updated
+        const originalSearchContent = searchContent;
+        searchContent = async function(...args) {
+            await originalSearchContent.apply(this, args);
+            // Wait a bit for content to render
+            setTimeout(checkScrollOverflow, 100);
+        };
+
+        async function watchContent(contentType, imdbId) {
+            try {
+                const modalContent = document.getElementById('modalContent');
+                modalContent.innerHTML = `
+                    <h2 class="modal-title">Loading Streams</h2>
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                    </div>
+                `;
+
+                if (contentType === 'movie') {
+                    const streamResponse = await fetch(`/${userPath}/stream/movie/${imdbId}.json`);
+                    const streamData = await streamResponse.json();
+                    
+                    if (streamData.streams && streamData.streams.length > 0) {
+                        modalContent.innerHTML = `
+                            <h2 class="modal-title">Available Streams</h2>
+                            <ul class="stream-list">
+                                ${streamData.streams.map(stream => {
+                                    const title = stream.title || stream.description || stream.name || 'Stream';
+                                    const isWatchhub = stream.service?.toLowerCase().includes('watchhub');
+                                    return `
+                                        <li class="stream-item${isWatchhub ? ' unreleased' : ''}">
+                                            <div${!isWatchhub ? ` onclick="togglePlayerSelection(this.parentElement, '${stream.url}')"` : ''}>
+                                                <div class="stream-title">${isWatchhub ? title : title.split('\n').filter((line, index) => index === 0 ? line.match(/^[^\w\s]/)?.length : true).join('\n')}</div>
+                                                <div class="stream-info">
+                                                    <span class="stream-size">${stream.service || ''}</span>
+                                                    ${stream.cached ? '<span class="stream-quality">CACHED</span>' : ''}
+                                                </div>
+                                            </div>
+                                            ${!isWatchhub ? `
+                                            <div class="player-selection">
+                                                <button class="player-button" onclick="openWithPlayer('copy', '${stream.url}')" ontouchend="this.blur()">${getCopyButtonText()}</button>
+                                                <button class="player-button" onclick="openWithPlayer('vlc', '${stream.url}')" ontouchend="this.blur()">VLC</button>
+                                                <button class="player-button" onclick="openWithPlayer('infuse', '${stream.url}')" ontouchend="this.blur()">Infuse</button>
+                                                <button class="player-button" onclick="openWithPlayer('vidhub', '${stream.url}')" ontouchend="this.blur()">VidHub</button>
+                                            </div>
+                                            ` : ''}
+                                        </li>
+                                    `;
+                                }).join('')}
+                            </ul>
+                        `;
+                    } else {
+                        modalContent.innerHTML = `
+                            <div class="no-results">No streams available for this content</div>
+                        `;
+                    }
+                } else if (contentType === 'series') {
+                    const contentResponse = await fetch(`/${userPath}/content/series/${imdbId}`);
+                    const contentData = await contentResponse.json();
+                    
+                    if (!contentData.seasons || Object.keys(contentData.seasons).length === 0) {
+                        modalContent.innerHTML = `
+                            <div class="no-results">No episodes available for this series</div>
+                        `;
+                        return;
+                    }
+
+                    const seasons = Object.keys(contentData.seasons);
+                    const firstSeason = seasons[0];
+                    
+                    modalContent.innerHTML = `
+                        <h2 class="modal-title">${contentData.title}</h2>
+                        <div class="season-picker">
+                            ${seasons.map(season => `
+                                <button class="season-button ${season === firstSeason ? 'active' : ''} ${season === '0' ? 'specials' : ''}" 
+                                    onclick="showEpisodes('${imdbId}', ${season}, ${JSON.stringify(contentData.seasons[season]).replace(/"/g, '&quot;')})">
+                                    ${season === '0' ? 'Specials' : `<span>Season</span><span>${season}</span>`}
+                                </button>
+                            `).join('')}
+                        </div>
+                        <div class="episode-list" id="episodeList">
+                            ${contentData.seasons[firstSeason].map(episode => {
+                                const isReleased = !episode.released || new Date(episode.released) <= new Date();
+                                return `
+                                    <div class="episode-item${!isReleased ? ' unreleased' : ''}"${isReleased ? ` onclick="getEpisodeStreams('${imdbId}', ${firstSeason}, ${episode.episode})"` : ''}>
+                                        <div class="episode-title">Episode ${episode.episode}${episode.title !== `Episode ${episode.episode}` ? `: ${episode.title}` : ''}</div>
+                                        ${episode.overview ? `<div class="episode-overview">${episode.overview}</div>` : ''}
+                                        ${episode.released ? `<div class="episode-released">${isReleased ? 'Released' : 'Releases'}: ${formatDate(episode.released)}</div>` : ''}
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error starting stream:', error);
+                modalContent.innerHTML = `
+                    <div class="no-results">Error loading streams</div>
+                `;
+            }
+        }
+
+        function showEpisodes(imdbId, season, episodes) {
+            // Update active season button
+            document.querySelectorAll('.season-button').forEach(button => {
+                button.classList.remove('active');
+                if (button.textContent.trim() === (season === '0' ? 'Specials' : `Season${season}`)) {
+                    button.classList.add('active');
+                }
+            });
+
+            // Update episode list
+            const episodeList = document.getElementById('episodeList');
+            episodeList.innerHTML = episodes.map(episode => {
+                const isReleased = !episode.released || new Date(episode.released) <= new Date();
+                return `
+                    <div class="episode-item${!isReleased ? ' unreleased' : ''}"${isReleased ? ` onclick="getEpisodeStreams('${imdbId}', ${season}, ${episode.episode})"` : ''}>
+                        <div class="episode-title">Episode ${episode.episode}${episode.title !== `Episode ${episode.episode}` ? `: ${episode.title}` : ''}</div>
+                        ${episode.overview ? `<div class="episode-overview">${episode.overview}</div>` : ''}
+                        ${episode.released ? `<div class="episode-released">${isReleased ? 'Released' : 'Releases'}: ${formatDate(episode.released)}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function formatDate(dateString) {
+            try {
+                const date = new Date(dateString);
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const year = String(date.getFullYear()).slice(2);
+                return `${month}/${day}/${year}`;
+            } catch (e) {
+                console.error('Error formatting date:', e);
+                return dateString;
+            }
+        }
+
+        async function getEpisodeStreams(imdbId, season, episode) {
+            try {
+                const modalContent = document.getElementById('modalContent');
+                const episodeList = document.getElementById('episodeList');
+                episodeList.innerHTML = `
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                    </div>
+                `;
+
+                const streamResponse = await fetch(`/${userPath}/stream/series/${imdbId}:${season}:${episode}.json`);
+                const streamData = await streamResponse.json();
+
+                if (streamData.streams && streamData.streams.length > 0) {
+                    episodeList.innerHTML = `
+                        <ul class="stream-list">
+                            ${streamData.streams.map(stream => {
+                                const title = stream.title || stream.description || stream.name || 'Stream';
+                                const isWatchhub = stream.service?.toLowerCase().includes('watchhub');
+                                return `
+                                    <li class="stream-item${isWatchhub ? ' unreleased' : ''}">
+                                        <div${!isWatchhub ? ` onclick="togglePlayerSelection(this.parentElement, '${stream.url}')"` : ''}>
+                                            <div class="stream-title">${isWatchhub ? title : title.split('\n').filter((line, index) => index === 0 ? line.match(/^[^\w\s]/)?.length : true).join('\n')}</div>
+                                            <div class="stream-info">
+                                                <span class="stream-size">${stream.service || ''}</span>
+                                                ${stream.cached ? '<span class="stream-quality">CACHED</span>' : ''}
+                                            </div>
+                                        </div>
+                                        ${!isWatchhub ? `
+                                        <div class="player-selection">
+                                            <button class="player-button" onclick="openWithPlayer('copy', '${stream.url}')" ontouchend="this.blur()">${getCopyButtonText()}</button>
+                                            <button class="player-button" onclick="openWithPlayer('vlc', '${stream.url}')" ontouchend="this.blur()">VLC</button>
+                                            <button class="player-button" onclick="openWithPlayer('infuse', '${stream.url}')" ontouchend="this.blur()">Infuse</button>
+                                            <button class="player-button" onclick="openWithPlayer('vidhub', '${stream.url}')" ontouchend="this.blur()">VidHub</button>
+                                        </div>
+                                        ` : ''}
+                                    </li>
+                                `;
+                            }).join('')}
+                        </ul>
+                    `;
+                } else {
+                    episodeList.innerHTML = `
+                        <div class="no-results">No streams available for this episode</div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading episode streams:', error);
+                episodeList.innerHTML = `
+                    <div class="no-results">Error loading streams</div>
+                `;
+            }
+        }
+
+        // Add platform detection and stream opening function
+        function openStream(url) {
+            const playerModal = document.createElement('div');
+            playerModal.className = 'modal show';
+            playerModal.style.zIndex = '2000'; // Ensure it's above the content modal
+            
+            playerModal.innerHTML = `
+                <div class="modal-content" style="max-width: 400px;">
+                    <button class="close-modal" onclick="this.closest('.modal').remove()">&times;</button>
+                    <h2 class="modal-title">Choose Video Player</h2>
+                    <div style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
+                        <button class="watch-button" onclick="openWithPlayer('vlc', '${url}')">
+                            VLC
+                        </button>
+                        <button class="watch-button" onclick="openWithPlayer('infuse', '${url}')">
+                            Infuse
+                        </button>
+                        <button class="watch-button" onclick="openWithPlayer('vidhub', '${url}')">
+                            VidHub
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(playerModal);
+            
+            // Close modal when clicking outside
+            playerModal.addEventListener('click', (e) => {
+                if (e.target === playerModal) {
+                    playerModal.remove();
+                }
+            });
+        }
+
+        function openWithPlayer(player, url) {
+            const encodedUrl = encodeURIComponent(url);
+            let playerUrl;
+            
+            switch (player) {
+                case 'copy':
+                    navigator.clipboard.writeText(url).then(() => {
+                        // Find the clicked button
+                        const buttons = document.querySelectorAll('.player-button');
+                        const clickedButton = Array.from(buttons).find(btn => 
+                            btn.textContent === 'Copy' || btn.textContent === 'Copy URL'
+                        );
+                        if (clickedButton) {
+                            const originalText = window.innerWidth <= 768 ? 'Copy' : 'Copy URL';
+                            clickedButton.textContent = 'Copied!';
+                            clickedButton.style.transition = 'opacity 0.2s';
+                            clickedButton.style.opacity = '0.7';
+                            clickedButton.blur(); // Remove focus
+                            
+                            // Reset the button text after 1.5 seconds
+                            setTimeout(() => {
+                                clickedButton.style.opacity = '1';
+                                clickedButton.textContent = originalText;
+                            }, 1500);
+                        }
+                    });
+                    return;
+                case 'vlc':
+                    playerUrl = `vlc://${url}`;
+                    break;
+                case 'infuse':
+                    playerUrl = `infuse://x-callback-url/play?url=${encodedUrl}`;
+                    break;
+                case 'vidhub':
+                    playerUrl = `open-vidhub://x-callback-url/open?url=${encodedUrl}`;
+                    break;
+            }
+            
+            window.location.href = playerUrl;
+        }
+
+        // Add responsive button text function
+        function getCopyButtonText() {
+            return window.innerWidth <= 768 ? 'Copy' : 'Copy URL';
+        }
+
+        // Update the button text on resize
+        window.addEventListener('resize', () => {
+            const copyButtons = document.querySelectorAll('.player-button');
+            copyButtons.forEach(button => {
+                if (button.textContent === 'Copy' || button.textContent === 'Copy URL') {
+                    button.textContent = getCopyButtonText();
+                }
+            });
+        });
+
+        // Close modal when clicking outside
+        contentModal.addEventListener('click', (e) => {
+            if (e.target === contentModal) {
+                closeModal();
+            }
+        });
+
+        // Close modal on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+
+        function togglePlayerSelection(streamItem, url) {
+            // Close any other open player selections
+            const allSelections = document.querySelectorAll('.player-selection.show');
+            allSelections.forEach(selection => {
+                if (selection !== streamItem.querySelector('.player-selection')) {
+                    selection.classList.remove('show');
+                }
+            });
+
+            // Toggle the clicked item's player selection
+            const playerSelection = streamItem.querySelector('.player-selection');
+            playerSelection.classList.toggle('show');
+        }
+
+        let currentSettings = null;
+        const settingsModal = document.getElementById('settingsModal');
+        const settingsGrid = document.getElementById('settingsGrid');
+        const settingsStatus = document.getElementById('settingsStatus');
+
+        async function showSettings() {
+            settingsModal.classList.add('show');
+            await loadSettings();
+        }
+
+        async function loadSettings() {
+            try {
+                settingsGrid.innerHTML = `
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                    </div>
+                `;
+
+                const response = await fetch(`/${userPath}/settings`);
+                currentSettings = await response.json();
+
+                settingsGrid.innerHTML = `
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <div class="setting-title">Vidi Mode</div>
+                            <div class="setting-description">Enable Vidi-specific features and optimizations</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="vidiMode" ${currentSettings.vidi_mode ? 'checked' : ''} onchange="updateSettings()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <div class="setting-title">Simple Format</div>
+                            <div class="setting-description">Use simplified stream formatting</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="simpleFormat" ${currentSettings.simple_format ? 'checked' : ''} onchange="updateSettings()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <div class="setting-title">One Per Quality</div>
+                            <div class="setting-description">Show only one stream per quality level</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="onePerQuality" ${currentSettings.one_per_quality ? 'checked' : ''} onchange="updateSettings()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <div class="setting-title">Cached Only</div>
+                            <div class="setting-description">Only show streams that are already cached</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="cachedOnly" ${currentSettings.cached_only ? 'checked' : ''} onchange="updateSettings()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error loading settings:', error);
+                settingsGrid.innerHTML = `
+                    <div class="error-message">
+                        Unable to load settings. Please try again.
+                    </div>
+                `;
+            }
+        }
+
+        async function updateSettings() {
+            try {
+                const newSettings = {
+                    vidi_mode: document.getElementById('vidiMode').checked,
+                    simple_format: document.getElementById('simpleFormat').checked,
+                    one_per_quality: document.getElementById('onePerQuality').checked,
+                    cached_only: document.getElementById('cachedOnly').checked
+                };
+
+                const response = await fetch(`/${userPath}/settings`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(newSettings)
+                });
+
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    settingsStatus.textContent = 'Settings saved successfully';
+                    settingsStatus.classList.remove('error');
+                    settingsStatus.classList.add('show', 'success');
+                    currentSettings = newSettings;
+                } else {
+                    throw new Error(result.message || 'Failed to save settings');
+                }
+            } catch (error) {
+                console.error('Error updating settings:', error);
+                settingsStatus.textContent = 'Failed to save settings';
+                settingsStatus.classList.remove('success');
+                settingsStatus.classList.add('show', 'error');
+            }
+
+            // Hide status message after 3 seconds
+            setTimeout(() => {
+                settingsStatus.classList.remove('show', 'success', 'error');
+            }, 3000);
+        }
+
+        // Close settings modal when clicking outside
+        settingsModal.addEventListener('click', (e) => {
+            if (e.target === settingsModal) {
+                closeSettingsModal();
+            }
+        });
+
+        // Add settings modal to escape key handler
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+                closeSettingsModal();
+            }
+        });
+
+        // iOS Install Banner Logic
+        const iosInstallBanner = document.getElementById('iosInstallBanner');
+        const container = document.querySelector('.container');
+
+        // Check if the user is on iOS Safari and the app is not installed
+        function shouldShowInstallBanner() {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            const isStandalone = window.navigator.standalone;
+            const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+            const hasSeenBanner = localStorage.getItem('dismissedInstallBanner');
+            
+            return isIOS && isSafari && !isStandalone && !hasSeenBanner;
+        }
+
+        // Show the install banner if conditions are met
+        function showInstallBanner() {
+            if (shouldShowInstallBanner()) {
+                iosInstallBanner.style.display = 'block';
+                // Use a small delay to ensure the display change has taken effect
+                setTimeout(() => {
+                    iosInstallBanner.classList.add('show');
+                    container.classList.add('has-install-banner');
+                }, 10);
+            }
+        }
+
+        // Dismiss the install banner
+        function dismissInstallBanner() {
+            iosInstallBanner.classList.remove('show');
+            container.classList.remove('has-install-banner');
+            localStorage.setItem('dismissedInstallBanner', 'true');
+            // Remove the banner from DOM after animation
+            setTimeout(() => {
+                iosInstallBanner.style.display = 'none';
+            }, 300);
+        }
+
+        // Show banner with a slight delay after page load
+        setTimeout(showInstallBanner, 1000);
+    </script>
+</body>
+</html>

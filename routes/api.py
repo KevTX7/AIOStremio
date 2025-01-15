@@ -6,6 +6,7 @@ from collections import defaultdict
 import copy
 from datetime import datetime
 import bcrypt
+from urllib.parse import quote_plus
 
 import aiohttp
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -54,19 +55,30 @@ def save_users(users):
 
 async def verify_user(user_path: str) -> tuple[str, bool]:
     try:
+        if not user_path or "|" not in user_path:
+            raise HTTPException(status_code=400, detail="Invalid credentials format: Missing username or password")
+        
         username, password = user_path.split("|")
+        if not username.startswith("user=") or not password.startswith("password="):
+            raise HTTPException(status_code=400, detail="Invalid credentials format: Malformed user path")
+        
         username = username.split("=")[1]
         safe_hash = password.split("=")[1]
-    except:
-        raise HTTPException(status_code=400, detail="Invalid credentials format")
+        
+        if not username or not safe_hash:
+            raise HTTPException(status_code=400, detail="Invalid credentials format: Empty username or password")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid credentials format: {str(e)}")
 
     users = load_users()
     if username not in users:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise HTTPException(status_code=401, detail="Invalid credentials: User not found")
 
     user_data = users[username]
     if user_data["password"] != safe_hash:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise HTTPException(status_code=401, detail="Invalid credentials: Incorrect password")
     proxy_streams = user_data.get("proxy_streams", True)
 
     return username, proxy_streams
@@ -167,8 +179,18 @@ async def configure_page(request: Request):
 @router.post("/configure/generate")
 async def generate_config(request: Request):
     form_data = await request.form()
-    user = User(username=form_data.get("username"), password=form_data.get("password"))
+    username = form_data.get("username")
+    password = form_data.get("password")
+    
+    if not username or not password:
+        raise HTTPException(
+            status_code=400, 
+            detail="Username and password are required"
+        )
+
+    user = User(username=username, password=password)
     logger.info(f"Received configuration request for username: {user.username}")
+    
     try:
         users = load_users()
         logger.debug(f"Loaded users from file. Found {len(users)} users")
@@ -176,14 +198,19 @@ async def generate_config(request: Request):
         if user.username not in users:
             logger.warning(f"User not found: {user.username}")
             return JSONResponse(
-                status_code=400,
-                content={"status": "error", "message": "User not found"},
+                status_code=401,
+                content={"status": "error", "message": "Invalid username or password"},
             )
 
-        stored_hash = users[user.username]["password"]  # Access password from dict
-        # Decode the base64 url-safe hash back to the original bcrypt hash
-        original_hash = base64.urlsafe_b64decode(stored_hash.encode()).decode()
-        logger.debug(f"Found stored hash for user: {user.username}")
+        stored_hash = users[user.username]["password"]
+        try:
+            original_hash = base64.urlsafe_b64decode(stored_hash.encode()).decode()
+        except Exception as e:
+            logger.error(f"Error decoding stored hash: {str(e)}")
+            return JSONResponse(
+                status_code=500,
+                content={"status": "error", "message": "Error verifying credentials"},
+            )
 
         try:
             is_valid = bcrypt.checkpw(user.password.encode(), original_hash.encode())
@@ -192,14 +219,14 @@ async def generate_config(request: Request):
             logger.error(f"Password verification error: {str(e)}")
             return JSONResponse(
                 status_code=500,
-                content={"status": "error", "message": "Error verifying password"},
+                content={"status": "error", "message": "Error verifying credentials"},
             )
 
         if not is_valid:
             logger.warning(f"Invalid password for user: {user.username}")
             return JSONResponse(
                 status_code=401,
-                content={"status": "error", "message": "Invalid password"},
+                content={"status": "error", "message": "Invalid username or password"},
             )
 
         url = f"{config.addon_url}/user={user.username}|password={stored_hash}/manifest.json"
@@ -212,7 +239,7 @@ async def generate_config(request: Request):
             status_code=500,
             content={
                 "status": "error",
-                "message": f"Error generating configuration: {str(e)}",
+                "message": "Internal server error occurred while generating configuration",
             },
         )
 
@@ -295,7 +322,7 @@ async def add_user(
     if not admin_auth.verify_admin(credentials.username, credentials.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
+            detail="Invalid admin credentials",
             headers={"WWW-Authenticate": "Basic"},
         )
 
@@ -308,25 +335,34 @@ async def add_user(
     one_per_quality = form_data.get("one_per_quality") == "on"
     cached_only = form_data.get("cached_only") == "on"
 
-    if not username or not password:
-        raise HTTPException(status_code=400, detail="Username and password required")
+    if not username:
+        raise HTTPException(status_code=400, detail="Username is required")
+    if not password:
+        raise HTTPException(status_code=400, detail="Password is required")
 
-    if not (3 <= len(username) <= 32) or not username.isalnum():
-        raise HTTPException(
-            status_code=400, detail="Username must be 3-32 alphanumeric characters"
-        )
+    if len(username) < 3:
+        raise HTTPException(status_code=400, detail="Username must be at least 3 characters long")
+    if len(username) > 32:
+        raise HTTPException(status_code=400, detail="Username cannot exceed 32 characters")
+    if not username.isalnum():
+        raise HTTPException(status_code=400, detail="Username must contain only letters and numbers")
 
     if len(password) < 8:
-        raise HTTPException(
-            status_code=400, detail="Password must be at least 8 characters"
-        )
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters long")
+    if len(password) > 100:
+        raise HTTPException(status_code=400, detail="Password is too long (maximum 100 characters)")
 
     users = load_users()
     if username in users:
-        raise HTTPException(status_code=400, detail="Unable to create user")
+        raise HTTPException(status_code=409, detail="Username already exists")
 
-    hashed_password = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
-    safe_hash = base64.urlsafe_b64encode(hashed_password).decode()
+    try:
+        hashed_password = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
+        safe_hash = base64.urlsafe_b64encode(hashed_password).decode()
+    except Exception as e:
+        logger.error(f"Error hashing password: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error creating user: Password hashing failed")
+
     users[username] = {
         "password": safe_hash,
         "proxy_streams": proxy_streams,
@@ -336,7 +372,12 @@ async def add_user(
         "one_per_quality": one_per_quality,
         "cached_only": cached_only
     }
-    save_users(users)
+
+    try:
+        save_users(users)
+    except Exception as e:
+        logger.error(f"Error saving users: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error creating user: Failed to save user data")
 
     logger.info(f"New user added: {username} (proxy_streams: {proxy_streams})")
     return {"status": "success", "message": "User created successfully"}
@@ -722,4 +763,326 @@ async def get_history(user_path: str):
         return {"history": history}
     except Exception as e:
         logger.error(f"Error getting media history: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class CinemetaAPI:
+    @cached_decorator(ttl=config.cache_ttl_seconds)
+    async def search_cinemeta_movie(self, query: str):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"https://v3-cinemeta.strem.io/catalog/movie/top/search={quote_plus(query)}.json"
+            ) as response:
+                data = await response.json()
+                if not data.get("metas"):
+                    return None
+                imdb_id = data["metas"][0]["id"]
+                return imdb_id
+
+    @cached_decorator(ttl=config.cache_ttl_seconds)
+    async def search_cinemeta_tv(self, query: str):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"https://v3-cinemeta.strem.io/catalog/series/top/search={quote_plus(query)}.json"
+            ) as response:
+                data = await response.json()
+                if not data.get("metas"):
+                    return None
+                imdb_id = data["metas"][0]["id"]
+                return imdb_id
+
+    @cached_decorator(ttl=config.cache_ttl_seconds)
+    async def detailed_cinemeta_movie(self, imdb_id: str):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"https://cinemeta-live.strem.io/meta/movie/{imdb_id}.json"
+            ) as response:
+                data = await response.json()
+                moviedb_id = data["meta"].get("moviedb_id", None)
+                title = data["meta"].get("name", "Unknown")
+                year = data["meta"].get("releaseInfo", "Unknown")
+                description = data["meta"].get("description", "Unknown")
+                poster = data["meta"].get("poster", None)
+                genres = data["meta"].get("genres", None)
+                runtime = data["meta"].get("runtime", None)
+                trailers = [
+                    "https://youtu.be/" + trailer["source"]
+                    for trailer in data["meta"].get("trailers", [])
+                ]
+
+                return (
+                    moviedb_id,
+                    title,
+                    year,
+                    description,
+                    poster,
+                    genres,
+                    runtime,
+                    trailers,
+                )
+
+    @cached_decorator(ttl=config.cache_ttl_seconds)
+    async def detailed_cinemeta_tv(self, imdb_id: str):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"https://cinemeta-live.strem.io/meta/series/{imdb_id}.json"
+            ) as response:
+                data = await response.json()
+                moviedb_id = data["meta"].get("moviedb_id", None)
+                title = data["meta"].get("name", "Unknown")
+                year = data["meta"].get("releaseInfo", "Unknown")
+                description = data["meta"].get("description", "Unknown")
+                poster = data["meta"].get("poster", None)
+                genres = data["meta"].get("genres", None)
+                trailers = [
+                    "https://youtu.be/" + trailer["source"]
+                    for trailer in data["meta"].get("trailers", [])
+                ]
+
+                return moviedb_id, title, year, description, poster, genres, trailers
+
+    @cached_decorator(ttl=config.cache_ttl_seconds)
+    async def get_series_episodes(self, imdb_id: str):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"https://cinemeta-live.strem.io/meta/series/{imdb_id}.json"
+            ) as response:
+                data = await response.json()
+                if not data.get("meta") or not data["meta"].get("videos"):
+                    return []
+                
+                # Group episodes by season
+                seasons = defaultdict(list)
+                for video in data["meta"]["videos"]:
+                    if video.get("season") is not None and video.get("episode") is not None:
+                        seasons[video["season"]].append({
+                            "episode": video["episode"],
+                            "title": video.get("name", f"Episode {video['episode']}"),
+                            "overview": video.get("overview", ""),
+                            "released": video.get("released", "")
+                        })
+                
+                # Sort episodes within each season
+                for season in seasons:
+                    seasons[season].sort(key=lambda x: x["episode"])
+                
+                return dict(sorted(seasons.items()))
+
+cinemeta_api = CinemetaAPI()
+
+@cached_decorator(ttl=config.cache_ttl_seconds)
+async def search_cinemeta(query: str, content_type: str = "all"):
+    """Search for content in Cinemeta and return formatted results"""
+    results = []
+    
+    if content_type in ["all", "movie"]:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"https://v3-cinemeta.strem.io/catalog/movie/top/search={quote_plus(query)}.json"
+            ) as response:
+                data = await response.json()
+                if data.get("metas"):
+                    for meta in data["metas"]:
+                        try:
+                            movie_details = await cinemeta_api.detailed_cinemeta_movie(meta["id"])
+                            results.append({
+                                "type": "movie",
+                                "imdb_id": meta["id"],
+                                "title": movie_details[1],
+                                "year": movie_details[2],
+                                "description": movie_details[3],
+                                "poster": movie_details[4],
+                                "genres": movie_details[5],
+                                "runtime": movie_details[6],
+                                "trailers": movie_details[7]
+                            })
+                        except:
+                            continue
+
+    if content_type in ["all", "series"]:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"https://v3-cinemeta.strem.io/catalog/series/top/search={quote_plus(query)}.json"
+            ) as response:
+                data = await response.json()
+                if data.get("metas"):
+                    for meta in data["metas"]:
+                        try:
+                            series_details = await cinemeta_api.detailed_cinemeta_tv(meta["id"])
+                            results.append({
+                                "type": "series",
+                                "imdb_id": meta["id"],
+                                "title": series_details[1],
+                                "year": series_details[2],
+                                "description": series_details[3],
+                                "poster": series_details[4],
+                                "genres": series_details[5],
+                                "trailers": series_details[6]
+                            })
+                        except:
+                            continue
+    
+    return results
+
+@router.get("/{user_path}/search")
+async def search_content(user_path: str, query: str, content_type: str = "all"):
+    username, _ = await verify_user(user_path)
+    if rate_limiter.is_rate_limited(username):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    try:
+        results = await search_cinemeta(query, content_type)
+        return {"results": results}
+    except Exception as e:
+        logger.error(f"Error searching content: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/{user_path}/content/{content_type}/{imdb_id}")
+async def get_content_details(user_path: str, content_type: str, imdb_id: str):
+    username, _ = await verify_user(user_path)
+    if rate_limiter.is_rate_limited(username):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    try:
+        if content_type == "movie":
+            details = await cinemeta_api.detailed_cinemeta_movie(imdb_id)
+            return {
+                "type": "movie",
+                "imdb_id": imdb_id,
+                "title": details[1],
+                "year": details[2],
+                "description": details[3],
+                "poster": details[4],
+                "genres": details[5],
+                "runtime": details[6],
+                "trailers": details[7]
+            }
+        elif content_type == "series":
+            details = await cinemeta_api.detailed_cinemeta_tv(imdb_id)
+            episodes = await cinemeta_api.get_series_episodes(imdb_id)
+            return {
+                "type": "series",
+                "imdb_id": imdb_id,
+                "title": details[1],
+                "year": details[2],
+                "description": details[3],
+                "poster": details[4],
+                "genres": details[5],
+                "trailers": details[6],
+                "seasons": episodes
+            }
+        else:
+            raise HTTPException(status_code=400, detail="Invalid content type")
+    except Exception as e:
+        logger.error(f"Error getting content details: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/{user_path}/watch", response_class=HTMLResponse)
+async def watch_page(request: Request, user_path: str):
+    username, _ = await verify_user(user_path)
+    return templates.TemplateResponse("watch.html", {"request": request})
+
+@router.get("/{user_path}/top")
+async def get_top_content(user_path: str):
+    username, _ = await verify_user(user_path)
+    if rate_limiter.is_rate_limited(username):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    try:
+        results = []
+        async with aiohttp.ClientSession() as session:
+            # Fetch top movies
+            async with session.get("https://cinemeta-catalogs.strem.io/top/catalog/movie/top.json") as response:
+                movies_data = await response.json()
+                if movies_data.get("metas"):
+                    for meta in movies_data["metas"]:
+                        try:
+                            movie_details = await cinemeta_api.detailed_cinemeta_movie(meta["id"])
+                            results.append({
+                                "type": "movie",
+                                "imdb_id": meta["id"],
+                                "title": movie_details[1],
+                                "year": movie_details[2],
+                                "description": movie_details[3],
+                                "poster": movie_details[4],
+                                "genres": movie_details[5],
+                                "runtime": movie_details[6],
+                                "trailers": movie_details[7]
+                            })
+                        except Exception as e:
+                            logger.error(f"Error processing movie {meta['id']}: {str(e)}")
+                            continue
+
+            # Fetch top series
+            async with session.get("https://cinemeta-catalogs.strem.io/top/catalog/series/top.json") as response:
+                series_data = await response.json()
+                if series_data.get("metas"):
+                    for meta in series_data["metas"]:
+                        try:
+                            series_details = await cinemeta_api.detailed_cinemeta_tv(meta["id"])
+                            results.append({
+                                "type": "series",
+                                "imdb_id": meta["id"],
+                                "title": series_details[1],
+                                "year": series_details[2],
+                                "description": series_details[3],
+                                "poster": series_details[4],
+                                "genres": series_details[5],
+                                "trailers": series_details[6]
+                            })
+                        except Exception as e:
+                            logger.error(f"Error processing series {meta['id']}: {str(e)}")
+                            continue
+
+        return {"results": results}
+    except Exception as e:
+        logger.error(f"Error getting top content: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/{user_path}/settings")
+async def get_user_settings(user_path: str):
+    username, _ = await verify_user(user_path)
+    if rate_limiter.is_rate_limited(username):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    try:
+        users = load_users()
+        if username not in users:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user_data = users[username]
+        return {
+            "vidi_mode": user_data.get("vidi_mode", False),
+            "simple_format": user_data.get("simple_format", False),
+            "one_per_quality": user_data.get("one_per_quality", False),
+            "cached_only": user_data.get("cached_only", False)
+        }
+    except Exception as e:
+        logger.error(f"Error getting user settings: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/{user_path}/settings")
+async def update_user_settings(user_path: str, request: Request):
+    username, _ = await verify_user(user_path)
+    if rate_limiter.is_rate_limited(username):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
+    try:
+        users = load_users()
+        if username not in users:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        data = await request.json()
+        user_data = users[username]
+        
+        # Only allow updating specific settings
+        allowed_settings = ["vidi_mode", "simple_format", "one_per_quality", "cached_only"]
+        for setting in allowed_settings:
+            if setting in data:
+                user_data[setting] = bool(data[setting])
+        
+        save_users(users)
+        return {"status": "success", "message": "Settings updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating user settings: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
