@@ -31,6 +31,7 @@ AIOStremio combines your favorite Stremio addons into one. Easily sync your setu
 
 ## Features
 - Account system
+- Web interface for streaming with support for VLC, Infuse and VidHub
 - Track users' watch history
 - Fetch links from multiple addons
 - Redis cache that instantly returns already fetched links
