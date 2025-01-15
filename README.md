@@ -18,13 +18,14 @@ AIOStremio combines your favorite Stremio addons into one. Easily sync your setu
 <details>
 <summary>More Images</summary>
 
-| Home | Admin Panel |
-| ---------- | ---------- |
-| ![Homepage](https://i.ibb.co/myfQyW1/Screen-Shot-2025-01-12-at-21-36-13.png) | ![Admin Panel](https://i.ibb.co/FxtVY6b/Screen-Shot-2025-01-12-at-21-36-00.png) |
-
-| Vidi<br>Custom Formatting | Vidi<br>Default Formatting |
-| ----------------------- | -------------- |
-| ![Vidi](https://i.ibb.co/z519LTP/IMG-3817.jpg) | ![Vidi](https://i.ibb.co/vZKGRLc/IMG-3818.jpg) |
+|                |              |
+|--------------------------|-------------------------|
+| ![Homepage](https://i.postimg.cc/2YgCXJ5Y/IMG-3880.png) | *Homepage* |
+| ![Streaming Interface](https://i.postimg.cc/npGZrhGV/IMG-3881.png) | *Streaming Interface* |
+| ![User Settings](https://i.postimg.cc/jKNRVXW7/IMG-3883.png) | *User Settings* |
+| ![Admin Settings](https://i.postimg.cc/1yDWs8GM/IMG-3887.png) | *Admin Settings* |
+| ![Title View](https://i.postimg.cc/Yt27WBd6/IMG-3884.png) | *Title View* |
+| ![Results](https://i.postimg.cc/6tXtBvR1/IMG-3885.png) | *Results* |
 
 </details>
 
