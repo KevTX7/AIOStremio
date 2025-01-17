@@ -18,14 +18,15 @@ AIOStremio combines your favorite Stremio addons into one. Easily sync your setu
 <details>
 <summary>More Images</summary>
 
-|                |              |
-|--------------------------|-------------------------|
-| ![Homepage](https://i.postimg.cc/2YgCXJ5Y/IMG-3880.png) | *Homepage* |
-| ![Streaming Interface](https://i.postimg.cc/npGZrhGV/IMG-3881.png) | *Streaming Interface* |
-| ![User Settings](https://i.postimg.cc/jKNRVXW7/IMG-3883.png) | *User Settings* |
-| ![Admin Settings](https://i.postimg.cc/1yDWs8GM/IMG-3887.png) | *Admin Settings* |
-| ![Title View](https://i.postimg.cc/Yt27WBd6/IMG-3884.png) | *Title View* |
-| ![Results](https://i.postimg.cc/6tXtBvR1/IMG-3885.png) | *Results* |
+|                           |         |
+|------------------------------------|--------------------|
+| <img src="https://i.postimg.cc/2YgCXJ5Y/IMG-3880.png" width="300"> | *Homepage*          |
+| <img src="https://i.postimg.cc/npGZrhGV/IMG-3881.png" width="300"> | *Streaming Interface* |
+| <img src="https://i.postimg.cc/Yt27WBd6/IMG-3884.png" width="300"> | *Title View*        |
+| <img src="https://i.postimg.cc/6tXtBvR1/IMG-3885.png" width="300"> | *Results*           |
+| <img src="https://i.postimg.cc/jKNRVXW7/IMG-3883.png" width="300"> | *User Settings*     |
+| <img src="https://i.postimg.cc/1yDWs8GM/IMG-3887.png" width="300"> | *Admin Settings*    |
+
 
 </details>
 
