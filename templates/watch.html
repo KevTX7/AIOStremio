@@ -298,7 +298,9 @@
         }
 
         .modal.show {
-            display: block;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .modal-content {
@@ -314,6 +316,53 @@
             transition: transform 0.2s ease-out;
             will-change: transform;
             touch-action: pan-y;
+            width: 100%;
+        }
+
+        @media (min-width: 769px) {
+            .modal-content {
+                margin: 0;
+                max-height: 90vh;
+                overflow-y: auto;
+                width: 90%;
+                max-width: 800px;
+                border-radius: 1rem;
+                transform: none !important;
+            }
+
+            .modal-content::before {
+                display: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .modal.show {
+                display: block;
+            }
+
+            .modal-content {
+                margin: env(safe-area-inset-top) 0 0 0;
+                min-height: calc(100vh - env(safe-area-inset-top));
+                border-radius: 1rem 1rem 0 0;
+                overflow-y: auto;
+                overscroll-behavior-y: contain;
+            }
+
+            .modal-content::before {
+                content: '';
+                display: block;
+                width: 40px;
+                height: 4px;
+                background: var(--border-color);
+                border-radius: 2px;
+                margin: -10px auto 15px;
+                opacity: 0.5;
+                transition: opacity 0.2s;
+            }
+
+            .modal-content.swiping::before {
+                opacity: 1;
+            }
         }
 
         .modal-content.swiping {
@@ -483,7 +532,15 @@
 
         @media (max-width: 768px) {
             body {
-                padding: 15px;
+                padding: 0;
+            }
+
+            .container {
+                padding: 1rem;
+                padding-top: calc(env(safe-area-inset-top) + 1rem);
+                padding-bottom: calc(env(safe-area-inset-bottom) + 1rem);
+                padding-left: calc(env(safe-area-inset-left) + 1rem);
+                padding-right: calc(env(safe-area-inset-right) + 1rem);
             }
 
             .content-grid {
@@ -549,6 +606,12 @@
                 background: var(--border-color);
                 border-radius: 2px;
                 margin: -10px auto 15px;
+                opacity: 0.5;
+                transition: opacity 0.2s;
+            }
+
+            .modal-content.swiping::before {
+                opacity: 1;
             }
 
             .modal-poster {
@@ -1132,9 +1195,25 @@
         let scrollStartPosition = 0;
 
         function handleTouchStart(e, modalContent) {
-            // Only handle touch events if we're at the top of the scroll
-            if (modalContent.scrollTop <= 0) {
-                touchStartY = e.touches[0].clientY;
+            const touchY = e.touches[0].clientY;
+            const rect = modalContent.getBoundingClientRect();
+            const titleArea = modalContent.querySelector('.modal-title');
+            const titleRect = titleArea?.getBoundingClientRect();
+            const posterArea = modalContent.querySelector('.modal-poster');
+            const posterRect = posterArea?.getBoundingClientRect();
+            
+            // Check if touch is in handle area (top 40px), title area, or poster area
+            const isInHandleArea = touchY <= rect.top + 40;
+            const isInTitleArea = titleRect && 
+                touchY >= titleRect.top && 
+                touchY <= titleRect.bottom;
+            const isInPosterArea = posterRect && 
+                touchY >= posterRect.top && 
+                touchY <= posterRect.bottom;
+
+            // Start dragging if in handle, title, or poster area
+            if (isInHandleArea || isInTitleArea || isInPosterArea) {
+                touchStartY = touchY;
                 touchCurrentY = touchStartY;
                 modalBeingDragged = modalContent;
                 scrollStartPosition = modalContent.scrollTop;
@@ -1148,7 +1227,7 @@
             touchCurrentY = e.touches[0].clientY;
             const deltaY = touchCurrentY - touchStartY;
             
-            // Only allow dragging downward
+            // If we started dragging from handle, title, or poster area, allow dragging
             if (deltaY > 0) {
                 e.preventDefault();
                 modalBeingDragged.style.transform = `translateY(${deltaY}px)`;
