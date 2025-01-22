@@ -306,20 +306,26 @@ class VideoInfoParser:
             stream.get('behaviorHints', {}).get('filename', '')
         ]))
         text = self.clean_text(text)
+        name = stream.get('name', '')
 
-        # Extract languages from name separately
-        name_languages = self.normalize_languages(self.find_all_patterns(stream.get('name', ''), self.LANGUAGE_PATTERNS))
+        # Extract languages and resolutions from name and text
+        name_languages = self.normalize_languages(self.find_all_patterns(name, self.LANGUAGE_PATTERNS))
+        text_languages = self.normalize_languages(self.find_all_patterns(text, self.LANGUAGE_PATTERNS))
+        languages = list(dict.fromkeys(name_languages + text_languages))
+        if languages == []:
+            languages = ['Unknown']
+
+        name_resolutions = [self.normalize_resolution(r) for r in self.find_all_patterns(name, self.RESOLUTION_PATTERNS)]
+        text_resolutions = [self.normalize_resolution(r) for r in self.find_all_patterns(text, self.RESOLUTION_PATTERNS)]
+        resolutions = list(filter(lambda x: x != 'Unknown', dict.fromkeys(name_resolutions + text_resolutions)))
+        resolutions = self.sort_resolutions(resolutions)
+        resolution = resolutions[-1] if resolutions else 'Unknown'
         
         size = stream.get('size', 0) or stream.get('torrentSize', 0) or \
                stream.get('behaviorHints', {}).get('videoSize', 0)
         
         if not size:
             size = self.parse_size_text(text)
-        
-        resolutions = [self.normalize_resolution(r) for r in self.find_all_patterns(text, self.RESOLUTION_PATTERNS)]
-        resolutions = list(filter(lambda x: x != 'Unknown', dict.fromkeys(resolutions)))
-        resolutions = self.sort_resolutions(resolutions)
-        resolution = resolutions[-1] if resolutions else 'Unknown'
 
         quality = self.normalize_quality(self.find_pattern(text, self.QUALITY_PATTERNS))
         
@@ -335,12 +341,6 @@ class VideoInfoParser:
         audio_formats = [self.normalize_audio(a) for a in self.find_all_patterns(text, self.AUDIO_PATTERNS)]
         audio_formats = list(filter(lambda x: x != 'Unknown', dict.fromkeys(audio_formats)))
         audio_formats = self.sort_audio_formats(audio_formats)
-        
-        # Combine languages from name and other fields
-        text_languages = self.normalize_languages(self.find_all_patterns(text, self.LANGUAGE_PATTERNS))
-        languages = list(dict.fromkeys(name_languages + text_languages))
-        if languages == []:
-            languages = ['Unknown']
         
         info = {
             'resolution': resolution,

@@ -43,7 +43,11 @@ class DebridioService(StreamingService):
         for stream in streams:
             stream["service"] = self.name
 
-            # Debridio streams are always cached
-            stream["is_cached"] = True
+            stream_name = stream.get("name", "")
+            if stream_name.startswith("["):
+                prefix = stream_name[1:stream_name.find("]")] if "]" in stream_name else ""
+                stream["is_cached"] = "+" in prefix
+            else:
+                stream["is_cached"] = True
 
         return streams
