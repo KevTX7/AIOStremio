@@ -268,6 +268,7 @@
 
         .content-info {
             padding: 1rem;
+            padding-bottom: 2.5rem;  /* Add space for the tag */
         }
 
         .content-title {
@@ -290,6 +291,20 @@
             color: white;
             font-size: 0.8rem;
             border-radius: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .content-info {
+                padding: 0.75rem;
+                padding-bottom: 2.25rem;  /* Slightly less padding on mobile */
+            }
+
+            .content-type {
+                bottom: 0.5rem;
+                left: 0.5rem;
+                font-size: 0.7rem;
+                padding: 0.15rem 0.4rem;
+            }
         }
 
         .modal {
@@ -521,6 +536,7 @@
             justify-content: center;
             align-items: center;
             padding: 2rem;
+            min-height: 160px;  /* Match content card height */
         }
 
         .spinner {
@@ -1148,6 +1164,17 @@
 
         <div id="searchResults"></div>
 
+        <div class="history-section">
+            <h2 class="section-title">Watch History</h2>
+            <div class="horizontal-scroll" id="historyContent">
+                <div class="search-status">
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="top-content-section">
             <h2 class="section-title">Top Movies</h2>
             <div class="horizontal-scroll" id="topMovies">
@@ -1524,7 +1551,7 @@
                 const series = data.results.filter(item => item.type === 'series');
 
                 document.getElementById('topMovies').innerHTML = movies.map(item => `
-                    <div class="content-card" onclick="showContentDetails('${item.type}', '${item.imdb_id}')">
+                    <div class="content-card" onclick="watchContent('${item.type}', '${item.imdb_id}')">
                         ${item.poster ? `
                             <img src="${item.poster}" alt="" class="content-poster" 
                                 onerror="this.outerHTML='<div class=\\'poster-placeholder\\'>🎬</div>'">
@@ -1539,7 +1566,7 @@
                 `).join('');
 
                 document.getElementById('topSeries').innerHTML = series.map(item => `
-                    <div class="content-card" onclick="showContentDetails('${item.type}', '${item.imdb_id}')">
+                    <div class="content-card" onclick="watchContent('${item.type}', '${item.imdb_id}')">
                         ${item.poster ? `
                             <img src="${item.poster}" alt="" class="content-poster" 
                                 onerror="this.outerHTML='<div class=\\'poster-placeholder\\'>🎬</div>'">
@@ -1593,7 +1620,7 @@
             setTimeout(checkScrollOverflow, 100);
         };
 
-        async function watchContent(contentType, imdbId) {
+        async function watchContent(contentType, imdbId, season = null, episode = null) {
             try {
                 const modalContent = document.getElementById('modalContent');
                 modalContent.innerHTML = `
@@ -1602,6 +1629,7 @@
                         <div class="spinner"></div>
                     </div>
                 `;
+                contentModal.classList.add('show');
 
                 if (contentType === 'movie') {
                     const streamResponse = await fetch(`/${userPath}/stream/movie/${imdbId}.json`);
@@ -1642,42 +1670,108 @@
                         `;
                     }
                 } else if (contentType === 'series') {
-                    const contentResponse = await fetch(`/${userPath}/content/series/${imdbId}`);
-                    const contentData = await contentResponse.json();
-                    
-                    if (!contentData.seasons || Object.keys(contentData.seasons).length === 0) {
-                        modalContent.innerHTML = `
-                            <div class="no-results">No episodes available for this series</div>
-                        `;
-                        return;
-                    }
+                    if (season !== null && episode !== null) {
+                        // Get both content and stream data
+                        const [contentResponse, streamResponse] = await Promise.all([
+                            fetch(`/${userPath}/content/series/${imdbId}`),
+                            fetch(`/${userPath}/stream/series/${imdbId}:${season}:${episode}.json`)
+                        ]);
+                        
+                        const [contentData, streamData] = await Promise.all([
+                            contentResponse.json(),
+                            streamResponse.json()
+                        ]);
 
-                    const seasons = Object.keys(contentData.seasons);
-                    const firstSeason = seasons[0];
-                    
-                    modalContent.innerHTML = `
-                        <h2 class="modal-title">${contentData.title}</h2>
-                        <div class="season-picker">
-                            ${seasons.map(season => `
-                                <button class="season-button ${season === firstSeason ? 'active' : ''} ${season === '0' ? 'specials' : ''}" 
-                                    onclick="showEpisodes('${imdbId}', ${season}, ${JSON.stringify(contentData.seasons[season]).replace(/"/g, '&quot;')})">
-                                    ${season === '0' ? 'Specials' : `<span>Season</span><span>${season}</span>`}
-                                </button>
-                            `).join('')}
-                        </div>
-                        <div class="episode-list" id="episodeList">
-                            ${contentData.seasons[firstSeason].map(episode => {
-                                const isReleased = !episode.released || new Date(episode.released) <= new Date();
-                                return `
-                                    <div class="episode-item${!isReleased ? ' unreleased' : ''}"${isReleased ? ` onclick="getEpisodeStreams('${imdbId}', ${firstSeason}, ${episode.episode})"` : ''}>
-                                        <div class="episode-title">Episode ${episode.episode}${episode.title !== `Episode ${episode.episode}` ? `: ${episode.title}` : ''}</div>
-                                        ${episode.overview ? `<div class="episode-overview">${episode.overview}</div>` : ''}
-                                        ${episode.released ? `<div class="episode-released">${isReleased ? 'Released' : 'Releases'}: ${formatDate(episode.released)}</div>` : ''}
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                    `;
+                        if (!contentData.seasons || Object.keys(contentData.seasons).length === 0) {
+                            modalContent.innerHTML = `
+                                <div class="no-results">No episodes available for this series</div>
+                            `;
+                            return;
+                        }
+
+                        const seasons = Object.keys(contentData.seasons);
+                        
+                        modalContent.innerHTML = `
+                            <h2 class="modal-title">${contentData.title}</h2>
+                            <div class="season-picker">
+                                ${seasons.map(s => `
+                                    <button class="season-button ${s === season.toString() ? 'active' : ''} ${s === '0' ? 'specials' : ''}" 
+                                        onclick="showEpisodes('${imdbId}', ${s}, ${JSON.stringify(contentData.seasons[s]).replace(/"/g, '&quot;')})">
+                                        ${s === '0' ? 'Specials' : `<span>Season</span><span>${s}</span>`}
+                                    </button>
+                                `).join('')}
+                            </div>
+                            <div class="episode-list" id="episodeList">
+                                ${streamData.streams && streamData.streams.length > 0 ? `
+                                    <ul class="stream-list">
+                                        ${streamData.streams.map(stream => {
+                                            const title = stream.title || stream.description || stream.name || 'Stream';
+                                            const isWatchhub = stream.service?.toLowerCase().includes('watchhub');
+                                            return `
+                                                <li class="stream-item${isWatchhub ? ' unreleased' : ''}">
+                                                    <div${!isWatchhub ? ` onclick="togglePlayerSelection(this.parentElement, '${stream.url}')"` : ''}>
+                                                        <div class="stream-title">${isWatchhub ? title : title.split('\n').filter((line, index) => index === 0 ? line.match(/^[^\w\s]/)?.length : true).join('\n')}</div>
+                                                        <div class="stream-info">
+                                                            <span class="stream-size">${stream.service || ''}</span>
+                                                            ${stream.cached ? '<span class="stream-quality">CACHED</span>' : ''}
+                                                        </div>
+                                                    </div>
+                                                    ${!isWatchhub ? `
+                                                    <div class="player-selection">
+                                                        <button class="player-button" onclick="openWithPlayer('copy', '${stream.url}')" ontouchend="this.blur()">${getCopyButtonText()}</button>
+                                                        <button class="player-button" onclick="openWithPlayer('vlc', '${stream.url}')" ontouchend="this.blur()">VLC</button>
+                                                        <button class="player-button" onclick="openWithPlayer('infuse', '${stream.url}')" ontouchend="this.blur()">Infuse</button>
+                                                        <button class="player-button" onclick="openWithPlayer('vidhub', '${stream.url}')" ontouchend="this.blur()">VidHub</button>
+                                                    </div>
+                                                    ` : ''}
+                                                </li>
+                                            `;
+                                        }).join('')}
+                                    </ul>
+                                ` : `
+                                    <div class="no-results">No streams available for this episode</div>
+                                `}
+                            </div>
+                        `;
+                    } else {
+                        // Show regular series view with season/episode selection
+                        const contentResponse = await fetch(`/${userPath}/content/series/${imdbId}`);
+                        const contentData = await contentResponse.json();
+                        
+                        if (!contentData.seasons || Object.keys(contentData.seasons).length === 0) {
+                            modalContent.innerHTML = `
+                                <div class="no-results">No episodes available for this series</div>
+                            `;
+                            return;
+                        }
+
+                        const seasons = Object.keys(contentData.seasons);
+                        const firstSeason = seasons[0];
+                        
+                        modalContent.innerHTML = `
+                            <h2 class="modal-title">${contentData.title}</h2>
+                            <div class="season-picker">
+                                ${seasons.map(season => `
+                                    <button class="season-button ${season === firstSeason ? 'active' : ''} ${season === '0' ? 'specials' : ''}" 
+                                        onclick="showEpisodes('${imdbId}', ${season}, ${JSON.stringify(contentData.seasons[season]).replace(/"/g, '&quot;')})">
+                                        ${season === '0' ? 'Specials' : `<span>Season</span><span>${season}</span>`}
+                                    </button>
+                                `).join('')}
+                            </div>
+                            <div class="episode-list" id="episodeList">
+                                ${contentData.seasons[firstSeason].map(episode => {
+                                    const isReleased = !episode.released || new Date(episode.released) <= new Date();
+                                    return `
+                                        <div class="episode-item${!isReleased ? ' unreleased' : ''}"${isReleased ? ` onclick="getEpisodeStreams('${imdbId}', ${firstSeason}, ${episode.episode})"` : ''}>
+                                            <div class="episode-title">Episode ${episode.episode}${episode.title !== `Episode ${episode.episode}` ? `: ${episode.title}` : ''}</div>
+                                            ${episode.overview ? `<div class="episode-overview">${episode.overview}</div>` : ''}
+                                            ${episode.released ? `<div class="episode-released">${isReleased ? 'Released' : 'Releases'}: ${formatDate(episode.released)}</div>` : ''}
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        `;
+                    }
                 }
             } catch (error) {
                 console.error('Error starting stream:', error);
@@ -1850,6 +1944,9 @@
             }
             
             window.location.href = playerUrl;
+            
+            // Update history after a short delay to ensure the stream URL is processed
+            setTimeout(updateHistorySection, 1000);
         }
 
         // Add responsive button text function
@@ -2062,6 +2159,83 @@
 
         // Show banner with a slight delay after page load
         setTimeout(showInstallBanner, 1000);
+
+        async function loadHistory() {
+            try {
+                const historyResponse = await fetch(`/${userPath}/history`);
+                const historyData = await historyResponse.json();
+                let history = historyData.history || [];
+
+                // Filter out duplicates, keeping only the most recent entry for each movie/series
+                const uniqueHistory = history.reduce((acc, current) => {
+                    const key = current.imdb_id;
+                    const existing = acc.find(item => item.imdb_id === key);
+                    if (!existing) {
+                        acc.push(current);
+                    }
+                    return acc;
+                }, []);
+
+                if (uniqueHistory.length === 0) {
+                    document.querySelector('.history-section').style.display = 'none';
+                    return;
+                }
+
+                const historyContent = document.getElementById('historyContent');
+                const historyHtml = await Promise.all(uniqueHistory.map(async entry => {
+                    try {
+                        const type = entry.type;
+                        const imdbId = entry.imdb_id;
+                        const metaUrl = `https://v3-cinemeta.strem.io/meta/${type}/${imdbId}.json`;
+                        const metaResponse = await fetch(metaUrl);
+                        const metaData = await metaResponse.json();
+                        const meta = metaData.meta || {};
+                        
+                        return `
+                            <div class="content-card" onclick="watchContent('${type}', '${imdbId}'${type === 'series' ? `, ${entry.season}, ${entry.episode}` : ''})">
+                                ${meta.poster ? 
+                                    `<img class="content-poster" src="${meta.poster}" alt="${meta.name}" loading="lazy">` :
+                                    `<div class="poster-placeholder">?</div>`
+                                }
+                                <div class="content-info">
+                                    <div class="content-title">${meta.name || entry.title || 'Unknown'}</div>
+                                </div>
+                                ${type === 'series' ? `
+                                <div class="content-type">
+                                    S${entry.season}E${entry.episode}
+                                </div>
+                                ` : ''}
+                            </div>
+                        `;
+                    } catch (error) {
+                        console.error('Error loading metadata:', error);
+                        return '';
+                    }
+                }));
+
+                historyContent.innerHTML = historyHtml.join('');
+                
+                // Show history section if it was hidden
+                document.querySelector('.history-section').style.display = 'block';
+                
+                // Check scroll overflow after updating history
+                setTimeout(checkScrollOverflow, 100);
+            } catch (error) {
+                console.error('Error loading history:', error);
+                document.querySelector('.history-section').style.display = 'none';
+            }
+        }
+
+        // Function to update history section
+        async function updateHistorySection() {
+            await loadHistory();
+        }
+
+        // Add this to the existing window.onload function
+        window.onload = function() {
+            loadHistory();
+            loadTopContent();
+        };
     </script>
 </body>
 </html>
