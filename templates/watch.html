@@ -1489,7 +1489,7 @@
                     `}
                     <h2 class="modal-title">${data.title}</h2>
                     <div class="modal-metadata">
-                        ${data.year} ${data.runtime ? `• ${data.runtime} minutes` : ''}
+                        ${data.year} ${data.runtime ? `• ${data.runtime}` : ''}
                     </div>
                     <div class="modal-description">${data.description}</div>
                     ${data.genres ? `
@@ -1551,7 +1551,7 @@
                 const series = data.results.filter(item => item.type === 'series');
 
                 document.getElementById('topMovies').innerHTML = movies.map(item => `
-                    <div class="content-card" onclick="watchContent('${item.type}', '${item.imdb_id}')">
+                    <div class="content-card" onclick="showContentDetails('${item.type}', '${item.imdb_id}')">
                         ${item.poster ? `
                             <img src="${item.poster}" alt="" class="content-poster" 
                                 onerror="this.outerHTML='<div class=\\'poster-placeholder\\'>🎬</div>'">
@@ -1566,7 +1566,7 @@
                 `).join('');
 
                 document.getElementById('topSeries').innerHTML = series.map(item => `
-                    <div class="content-card" onclick="watchContent('${item.type}', '${item.imdb_id}')">
+                    <div class="content-card" onclick="showContentDetails('${item.type}', '${item.imdb_id}')">
                         ${item.poster ? `
                             <img src="${item.poster}" alt="" class="content-poster" 
                                 onerror="this.outerHTML='<div class=\\'poster-placeholder\\'>🎬</div>'">
