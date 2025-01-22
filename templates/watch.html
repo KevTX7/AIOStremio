@@ -1545,8 +1545,6 @@
                     return;
                 }
 
-                ((e,t)=>{let n=e.createElement("div");n.innerHTML=`<a href="${atob("aHR0cHM6Ly9naXRodWIuY29tL3N0ZWtjL0FJT1N0cmVtaW8=")}" style="text-decoration:none;color:inherit">${String.fromCharCode(77,97,100,101,32,119,105,116,104,32,9829,32,98,121,32)+atob("c3RrYw==")}</a>`,n.style=atob("Y29sb3I6dmFyKC0tdGV4dC1jb2xvcik7b3BhY2l0eTouNzttYXJnaW46MnJlbSAwO3RleHQtYWxpZ246Y2VudGVy"),e.querySelector(".top-content-section").appendChild(n)})(document);
-
                 const movies = data.results.filter(item => item.type === 'movie');
                 const series = data.results.filter(item => item.type === 'series');
 
@@ -1579,6 +1577,15 @@
                         </div>
                     </div>
                 `).join('');
+
+                // Add footer only if it doesn't exist
+                if (!document.querySelector('.aiostremio-footer')) {
+                    const footer = document.createElement('div');
+                    footer.className = 'aiostremio-footer';
+                    footer.innerHTML = `<a href="https://github.com/stekc/AIOStremio" style="text-decoration:none;color:inherit">Made with ♥ by stkc</a>`;
+                    footer.style = "color:var(--text-color);opacity:.7;margin:2rem 0;text-align:center";
+                    document.querySelector('.top-content-section').appendChild(footer);
+                }
 
                 // Check for overflow after content is loaded
                 checkScrollOverflow();
