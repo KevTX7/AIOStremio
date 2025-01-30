@@ -16,7 +16,7 @@ class DebridioService(StreamingService):
         self.base_url = "https://debridio.adobotec.com"
         self.debrid_api_key = config.get_addon_debrid_api_key("debridio")
         self.debrid_service = config.get_addon_debrid_service("debridio")
-        self.options = f'{{"provider":"{self.debrid_service}","apiKey":"{self.debrid_api_key}"}}'
+        self.options = f'{{"provider":"{self.debrid_service}","apiKey":"{self.debrid_api_key}","disableUncached":false,"qualityOrder":[],"excludeSize":"","maxReturnPerQuality":""}}'
         self.options_encoded = base64.b64encode(self.options.encode()).decode("utf-8")
 
     @property
