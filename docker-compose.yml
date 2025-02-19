@@ -1,14 +1,28 @@
+version: '3'
 services:
-
   debridproxy:
     build: .
     container_name: debridproxy
     volumes:
       - .:/app
-    ports:
-      - "8469:8469"
+      - ./config.json:/app/config.json  # Mount your config.json into the container
     env_file:
       - .env
+    environment:
+      - ADMIN_USERNAME=AIOKTech
+      - ADMIN_PASSWORD=AIOX24-7
+      - ENCRYPTION_KEY=e8AdZ9nIb_YXQ70U6wla1TCuyEadk79t5nn9El-ZpIg=
+      - MEDIAFLOW_API_KEY=Flow24-7
+      - MEDIAFLOW_STREAMING_PROGRESS=true
+      - DEBRID_API_KEY=44097064-7841-44d8-8919-e4a4a1d0c9fc,VPFNXJIPWQL6MLIL62VE43YZAHW2HBXNU3DN7ZL2MR6UDWWFW6MQ,ct8haihycj7t69ez
+      - MEDIAFUSION_OPTIONS=D-Ih4SqwjwzaxIVIfWxNSjkK4ajYXgDWU16mJjNM7rLZ4xQSmBryy0N2YE_QW8ifMoG74SXvCF2W9A1ez6pqS0v0cNBCQTcP641gIatbdnsro8lAFkFvLep5R0tXtq1Gw3wuAO1vOHhNSMBeiw-_SNlntewZx-MMBL0FzPSR3Mwdb8GpVxHI-PYMgU2vEUW5LIv-M9aGS5xytuetq7rzA93MnoL3VhFE_lLeGz2HNvi2UPSrxlSBi0SUR40Q-DPxo9XzkJhGq0Zlj8RF3mRvNkK1AVSrM-gwX_ziPpQQS0Z1WiUoFtVfNskJ61ogBw45CUP4qoGj0EhH1LgXa4ow7gakQTOIzdAi6YO43iZ0ND8H0EgpalxtmoFAtDVAwTRxnhueigWFZbA9FfFu7o1RHlbEoZF5OkdIZPN2SmR_JuOOf27jEuC-G_nrEKEHumeQgLxfyQK9Ucr5-MJ-aoQxbgBSP5LAbInaqn7AaoO6vUSTk
+      - EASYNEWS_USERNAME=ktechx
+      - EASYNEWS_PASSWORD=KTech24-7
+      - REDIS_HOST=debridproxy_redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=Flow24-7
+    ports:
+      - "8469:8469"
     restart: unless-stopped
     cap_drop:
       - ALL
@@ -29,10 +43,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    mem_limit: 4G
     depends_on:
       redis:
         condition: service_healthy
-    mem_limit: 4G
 
   redis:
     image: redis:alpine
@@ -107,3 +121,7 @@ services:
       - ADMIN_USER=${ADMIN_USERNAME}
       - ADMIN_PASS=${ADMIN_PASSWORD}
     mem_limit: 512M
+
+# Uncomment and use the following if you prefer named volumes for Redis data instead of a bind mount:
+# volumes:
+#   redis_data:
